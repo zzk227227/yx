@@ -6,151 +6,6 @@
     <title>张泽凯的游戏网站</title>
     <!-- 优化后的样式表整合 -->
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    // 安全配置参数
-    const SECURITY_CONFIG = {
-        MAX_INPUT_LENGTH: 40,
-        ALLOWED_CHARS: /^[a-zA-Z0-9\u4e00-\u9fa5_\- ]+$/,
-        REQUEST_LIMIT: 3, // 每分钟最大提交次数
-        ENCRYPTION_KEY: 'your-32-byte-encryption-key-1234567890!!' // 生产环境需更换
-    }
-    
-    // 初始化安全模块
-    const SecurityModule = (() => {
-        let requestCount = 0;
-        let lastRequestTime = Date.now();
-    
-        // XSS防护
-        const sanitizeInput = (input) => {
-            return input.replace(/<[^>]*>?/gm, '')
-                       .replace(/[^\w\u4e00-\u9fa5\- ]/gi, '');
-        }
-    
-        // 频率限制
-        const checkRateLimit = () => {
-            const now = Date.now();
-            if (now - lastRequestTime > 60000) {
-                requestCount = 0;
-                lastRequestTime = now;
-            }
-            return ++requestCount <= SECURITY_CONFIG.REQUEST_LIMIT;
-        }
-    
-        // 数据加密
-        const encryptData = (data) => {
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const encoder = new TextEncoder();
-            const key = await window.crypto.subtle.importKey(
-                "raw",
-                encoder.encode(SECURITY_CONFIG.ENCRYPTION_KEY),
-                { name: "AES-GCM" },
-                false,
-                ["encrypt", "decrypt"]
-            );
-            const encrypted = await window.crypto.subtle.encrypt(
-                { name: "AES-GCM", iv },
-                key,
-                encoder.encode(JSON.stringify(data))
-            );
-            return { iv, data: new Uint8Array(encrypted) };
-        }
-    
-        // 数据解密
-        const decryptData = async (encryptedData) => {
-            const decoder = new TextDecoder();
-            const key = await window.crypto.subtle.importKey(
-                "raw",
-                encoder.encode(SECURITY_CONFIG.ENCRYPTION_KEY),
-                { name: "AES-GCM" },
-                false,
-                ["decrypt"]
-            );
-            const decrypted = await window.crypto.subtle.decrypt(
-                { name: "AES-GCM", iv: encryptedData.iv },
-                key,
-                encryptedData.data
-            );
-            return JSON.parse(decoder.decode(decrypted));
-        }
-    
-        return {
-            sanitizeInput,
-            checkRateLimit,
-            encryptData,
-            decryptData
-        }
-    })();
-    
-    // 修改后的安全存储
-    const SecureStorage = {
-        async save(data) {
-            const encrypted = await SecurityModule.encryptData(data);
-            localStorage.setItem('signatures', JSON.stringify({
-                iv: Array.from(encrypted.iv),
-                data: Array.from(encrypted.data)
-            }));
-        },
-    
-        async load() {
-            const stored = localStorage.getItem('signatures');
-            if (!stored) return [];
-            
-            const parsed = JSON.parse(stored);
-            return SecurityModule.decryptData({
-                iv: new Uint8Array(parsed.iv),
-                data: new Uint8Array(parsed.data)
-            });
-        }
-    }
-    
-    // 修改后的提交逻辑
-    document.getElementById('signForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        if (!SecurityModule.checkRateLimit()) {
-            alert('提交过于频繁，请稍后再试');
-            return;
-        }
-    
-        let username = document.getElementById('username').value.trim();
-        username = SecurityModule.sanitizeInput(username);
-    
-        if (!username) {
-            alert('请输入有效名称');
-            return;
-        }
-    
-        if (username.length > SECURITY_CONFIG.MAX_INPUT_LENGTH) {
-            alert(`名称过长（最大${SECURITY_CONFIG.MAX_INPUT_LENGTH}字符）`);
-            return;
-        }
-    
-        if (!SECURITY_CONFIG.ALLOWED_CHARS.test(username)) {
-            alert('包含非法字符');
-            return;
-        }
-    
-        try {
-            const signatures = await SecureStorage.load();
-            signatures.push(username);
-            await SecureStorage.save(signatures);
-            addSignatureToDom(username);
-            document.getElementById('username').value = '';
-        } catch (error) {
-            console.error('安全存储错误:', error);
-            alert('系统错误，提交失败');
-        }
-    });
-    
-    // 初始化加载
-    (async () => {
-        try {
-            const signatures = await SecureStorage.load();
-            signatures.forEach(addSignatureToDom);
-        } catch (error) {
-            console.error('初始化加载失败:', error);
-        }
-    })();
-    </script>
     <script>
         // 阻止右键菜单
         document.addEventListener('contextmenu', e => e.preventDefault());
@@ -455,7 +310,7 @@
                     <button onclick="window.location.href='yx/MCN.zip'">
                         <i class="fa fa-terminal"></i> 下载程序
                     </button>
-                    <button onclick="window.location.href='https://www.mc.js.cool/mc/1.8/'">
+                    <button onclick="window.location.href='https://play.mc.js.cool/1.8'">
                         <i class="fa fa-terminal"></i> 联机运行
                     </button>
                 </div>
@@ -469,4 +324,5 @@
         <p>System Version: NeonOS v2.3.5 | 终端协议 © 2025</p>
     </footer>
 </body>
+
 </html>
